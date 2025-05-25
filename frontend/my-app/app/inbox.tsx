@@ -1,65 +1,96 @@
-import { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, Button, Alert } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, FlatList, ActivityIndicator, StyleSheet, Alert } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
-import { useRouter } from 'expo-router';
-import { fetchInbox } from '../utils/api';
+import axios from 'axios';
 
-type Email = {
-  subject?: string;
-  from?: { text?: string };
-  // Add other fields as needed
-};
+interface Email {
+  subject: string;
+  from: string;
+  date: string;
+}
 
-export default function Inbox() {
+export default function InboxScreen() {
   const [emails, setEmails] = useState<Email[]>([]);
-  const router = useRouter();
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadInbox = async () => {
+    const fetchInbox = async () => {
       try {
-        const email = await SecureStore.getItemAsync('email');
+        const Email = await SecureStore.getItemAsync('email');
+        if (!Email) {
+          Alert.alert('Error', 'Missing email');
+          return;
+        }
+        const email = Email.split('@')[0];
         const password = await SecureStore.getItemAsync('password');
-        if (email && password) {
-          const data = await fetchInbox(email, password);
-          if (typeof data === 'object' && data !== null && 'emails' in data && Array.isArray((data as any).emails)) {
-            setEmails((data as { emails: Email[] }).emails || []);
-          } else {
-            setEmails([]);
-          }
+
+        if (!email || !password) {
+          Alert.alert('Error', 'Missing credentials');
+          return;
         }
-      } catch (err) {
-        let message = 'Unknown error';
-        if (err && typeof err === 'object' && 'response' in err && err.response && typeof err.response === 'object' && 'data' in err.response && err.response.data && typeof err.response.data === 'object' && 'message' in err.response.data) {
-          message = (err.response.data as { message?: string }).message || message;
-        } else if (err instanceof Error) {
-          message = err.message;
-        }
-        Alert.alert('Inbox Error', message);
+
+        const response = await axios.post('http://172.23.156.3:3000/api/inbox', {
+          email,
+          password,
+        });
+
+        const data = response.data as { emails?: Email[] };
+        setEmails(data.emails || []);
+      } catch (err: any) {
+        const errorMessage = err?.response?.data?.message || err?.message || 'Something went wrong';
+        Alert.alert('Inbox Error', errorMessage);
+      } finally {
+        setLoading(false);
       }
     };
 
-    loadInbox();
+    fetchInbox();
   }, []);
 
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" />
+        <Text>Loading inbox...</Text>
+      </View>
+    );
+  }
+
   return (
-    <View style={styles.container}>
-      <Button title="Compose" onPress={() => router.push('/compose')} />
-      <FlatList
-        data={emails}
-        keyExtractor={(_, index) => index.toString()}
-        renderItem={({ item }) => (
-          <View style={styles.emailItem}>
-            <Text style={styles.subject}>{item.subject || '(No Subject)'}</Text>
-            <Text>{item.from?.text || ''}</Text>
-          </View>
-        )}
-      />
-    </View>
+    <FlatList
+      data={emails}
+      keyExtractor={(_, index) => index.toString()}
+      contentContainerStyle={{ padding: 16 }}
+      renderItem={({ item }) => (
+        <View style={styles.card}>
+          <Text style={styles.subject}>{item.subject}</Text>
+          <Text>From: {item.from}</Text>
+          <Text>Date: {item.date}</Text>
+        </View>
+      )}
+      ListEmptyComponent={
+        <View style={styles.center}>
+          <Text>No emails found.</Text>
+        </View>
+      }
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 10 },
-  emailItem: { marginBottom: 15, padding: 10, borderWidth: 1, borderRadius: 5 },
-  subject: { fontWeight: 'bold' },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  card: {
+    marginBottom: 12,
+    padding: 12,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+  },
+  subject: {
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
 });

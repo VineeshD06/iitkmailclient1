@@ -1,44 +1,68 @@
-import { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TextInput, Button, Alert, StyleSheet } from 'react-native';
+import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import { useRouter } from 'expo-router';
-import { login } from '../utils/api';
 
-export default function Login() {
+const BASE_URL = 'http://172.23.156.3:3000/api';
+
+const LoginScreen: React.FC = () => {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const router = useRouter();
 
   const handleLogin = async () => {
     try {
-      await login(email, password);
+      const res = await axios.post(`${BASE_URL}/login`, { email, password });
+      const data = res.data as { message: string };
+      Alert.alert('✅ Success', data.message);
       await SecureStore.setItemAsync('email', email);
       await SecureStore.setItemAsync('password', password);
+
+
       router.replace('/inbox');
-    } catch (err) {
-      let message = 'Unknown error';
-      if (typeof err === 'object' && err !== null && 'response' in err) {
-        const response = (err as any).response;
-        message = response?.data?.message || message;
-      } else if (err instanceof Error) {
-        message = err.message;
-      }
-      Alert.alert('Login Failed', message);
+    } catch (error: any) {
+      const message = error?.response?.data?.message || 'Unknown error occurred';
+      Alert.alert('❌ Login Failed', message);
+      console.error(message);
     }
   };
 
   return (
     <View style={styles.container}>
-      <Text>Email</Text>
-      <TextInput style={styles.input} onChangeText={setEmail} value={email} autoCapitalize="none" />
-      <Text>Password</Text>
-      <TextInput style={styles.input} onChangeText={setPassword} value={password} secureTextEntry />
+      <Text style={styles.title}>IITK Mail Login</Text>
+
+      <TextInput
+        placeholder="Email"
+        value={email}
+        onChangeText={setEmail}
+        autoCapitalize="none"
+        style={styles.input}
+      />
+      <TextInput
+        placeholder="Password"
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+        style={styles.input}
+      />
+
       <Button title="Login" onPress={handleLogin} />
     </View>
   );
-}
+};
+
+export default LoginScreen;
 
 const styles = StyleSheet.create({
-  container: { padding: 20, flex: 1, justifyContent: 'center' },
-  input: { borderWidth: 1, padding: 10, marginBottom: 10 },
+  container: {
+    flex: 1, justifyContent: 'center', paddingHorizontal: 20,
+  },
+  title: {
+    fontSize: 22, marginBottom: 20, textAlign: 'center',
+  },
+  input: {
+    height: 48, borderColor: '#ccc', borderWidth: 1, marginBottom: 15,
+    paddingHorizontal: 10, borderRadius: 5,
+  },
 });
