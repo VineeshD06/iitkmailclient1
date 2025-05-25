@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, ActivityIndicator, StyleSheet, Alert } from 'react-native';
+import { View, Text, FlatList, ActivityIndicator, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import axios from 'axios';
+import { router } from 'expo-router';
 
 interface Email {
   subject: string;
@@ -44,8 +45,13 @@ export default function InboxScreen() {
       }
     };
 
+    
     fetchInbox();
   }, []);
+
+  const handleComposePress = () => {
+    router.push('/compose');
+  };
 
   if (loading) {
     return (
@@ -57,6 +63,10 @@ export default function InboxScreen() {
   }
 
   return (
+    <View style={styles.container}>
+      <TouchableOpacity style={styles.composeButton} onPress={handleComposePress}>
+        <Text style={styles.composeText}>+ Compose</Text>
+      </TouchableOpacity>
     <FlatList
       data={emails}
       keyExtractor={(_, index) => index.toString()}
@@ -74,14 +84,31 @@ export default function InboxScreen() {
         </View>
       }
     />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
   center: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  composeButton: {
+    backgroundColor: '#007bff',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    margin: 16,
+  },
+  composeText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
   card: {
     marginBottom: 12,

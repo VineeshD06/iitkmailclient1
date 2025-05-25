@@ -1,47 +1,88 @@
-import { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, TextInput, Button, Alert, StyleSheet } from 'react-native';
+import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
-import { sendMail } from '../utils/api';
 
-export default function Compose() {
+export default function ComposeScreen() {
   const [to, setTo] = useState('');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
 
   const handleSend = async () => {
+    const email = await SecureStore.getItemAsync('email');
+    const password = await SecureStore.getItemAsync('password');
+
+    if (!email || !password) {
+      Alert.alert('Not authenticated');
+      return;
+    }
+
     try {
-      const email = await SecureStore.getItemAsync('email');
-      const password = await SecureStore.getItemAsync('password');
-      if (email && password) {
-        await sendMail(email, password, to, subject, body);
-        Alert.alert('Success', 'Mail sent successfully');
+      const response = await axios.post('http://172.23.156.3:3000/api/send', {
+        email: email,
+        to,
+        subject,
+        text: body,
+        password,
+      });
+
+      if (response.status === 200) {
+        Alert.alert('Mail sent successfully!');
+        setTo('');
+        setSubject('');
+        setBody('');
+      } else {
+        Alert.alert('Failed to send email');
       }
     } catch (err) {
-      let message = 'Unknown error';
-      if (err && typeof err === 'object' && 'response' in err && err.response && typeof err.response === 'object' && 'data' in err.response && err.response.data && typeof err.response.data === 'object' && 'message' in err.response.data) {
-        // @ts-ignore
-        message = err.response.data.message;
-      } else if (err instanceof Error) {
-        message = err.message;
-      }
-      Alert.alert('Send Failed', message);
+      Alert.alert('Error sending mail', String(err));
     }
   };
 
   return (
     <View style={styles.container}>
-      <Text>To</Text>
-      <TextInput style={styles.input} value={to} onChangeText={setTo} />
-      <Text>Subject</Text>
-      <TextInput style={styles.input} value={subject} onChangeText={setSubject} />
-      <Text>Body</Text>
-      <TextInput style={[styles.input, { height: 100 }]} value={body} onChangeText={setBody} multiline />
+      <TextInput
+        placeholder="To"
+        value={to}
+        onChangeText={setTo}
+        style={styles.input}
+        autoCapitalize="none"
+      />
+      <TextInput
+        placeholder="Subject"
+        value={subject}
+        onChangeText={setSubject}
+        style={styles.input}
+      />
+      <TextInput
+        placeholder="Message"
+        value={body}
+        onChangeText={setBody}
+        style={[styles.input, styles.textArea]}
+        multiline
+        numberOfLines={6}
+      />
       <Button title="Send" onPress={handleSend} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 20 },
-  input: { borderWidth: 1, padding: 10, marginBottom: 10 },
+  container: {
+    padding: 16,
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 5,
+    marginBottom: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  textArea: {
+    height: 120,
+    textAlignVertical: 'top',
+  },
 });
